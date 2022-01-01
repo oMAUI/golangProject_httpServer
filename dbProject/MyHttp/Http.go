@@ -1,6 +1,9 @@
 package MyHttp
 
 import (
+	"dbProject/ErrorPorcessing"
+	"dbProject/WorkWithJson"
+	"dbProject/WorkWithToken"
 	"dbProject/structs"
 	"encoding/json"
 	"fmt"
@@ -8,11 +11,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"dbProject/ErrorPorcessing"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	//"dbProject/files"
-	"github.com/golang-jwt/jwt"
 	_ "github.com/jmoiron/sqlx"
 )
 
@@ -47,7 +47,7 @@ func MyRequest(ro Route) *chi.Mux {
 			return
 		}
 
-		tokenJson, errGetToken := GetToken(User)
+		tokenJson, errGetToken := WorkWithToken.GetToken(User)
 		if errGetToken != nil {
 			ErrorPorcessing.HttpError(w, errGetToken, "failed to Signing String", "", http.StatusInternalServerError)
 			return
@@ -71,10 +71,10 @@ func MyRequest(ro Route) *chi.Mux {
 			return
 		}
 
-		tokenJson, errGetToken := GetToken(User)
+		tokenJson, errGetToken := WorkWithToken.GetToken(User)
 		if errGetToken != nil {
-				ErrorPorcessing.HttpError(w, errGetToken, "failed to get token in Authorization", "Server Error", http.StatusInternalServerError)
-				return
+			ErrorPorcessing.HttpError(w, errGetToken, "failed to get token in Authorization", "Server Error", http.StatusInternalServerError)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -89,7 +89,7 @@ func MyRequest(ro Route) *chi.Mux {
 			return
 		}
 
-		userJson, errUsersJson := GetJsonByte(users)
+		userJson, errUsersJson := WorkWithJson.GetJsonByte(users)
 		if errUsersJson != nil {
 			ErrorPorcessing.HttpError(w, errUsersJson, "", "server error", http.StatusInternalServerError)
 			return
@@ -115,38 +115,4 @@ func UnmarshalBody(w http.ResponseWriter,r io.Reader, v interface{}) error {
 	}
 
 	return nil
-}
-
-func GetJsonByte(v interface{}) ([]byte, error){
-	usersJson, errJson := json.Marshal(v)
-	if errJson != nil {
-		return nil, errJson
-	}
-
-	return usersJson, nil
-}
-
-
-
-func GetToken(User structs.User) ([]byte, error){
-	tokenWithClaims := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"login": User.Login,
-	})
-
-	token, errSigningToken := tokenWithClaims.SigningString()
-	if errSigningToken != nil {
-		//HttpError(w, errSigningToken, "failed to Signing String", "", http.StatusInternalServerError)
-		return nil, errSigningToken
-	}
-
-	tokenResp := structs.TokenResp{
-		Token: token,
-	}
-
-	tokenJson, errJson := GetJsonByte(tokenResp)
-	if errJson != nil {
-		return nil, errJson
-	}
-
-	return tokenJson, nil
 }
