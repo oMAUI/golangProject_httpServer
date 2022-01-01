@@ -17,3 +17,7 @@ type UserFromBody struct {
 type TokenResp struct {
 	Token string `json:"token"`
 }
+
+type CustomError struct {
+	Message string `json:"message"`
+}

@@ -4,9 +4,11 @@ import (
 	"dbProject/structs"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
+	"dbProject/ErrorPorcessing"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	//"dbProject/files"
@@ -27,34 +29,27 @@ type Route struct{
 	DB DbInterface
 }
 
-func MyRequest(ro Route) (*chi.Mux){
+func MyRequest(ro Route) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 
 	router.Get("/Authorization", func(w http.ResponseWriter, r *http.Request){
 		defer r.Body.Close()
 
-		resp, errResp := ioutil.ReadAll(r.Body)
-		if errResp != nil {
-			HttpError(w, errResp, "Bad Request", "failed to get body", http.StatusBadRequest)
-			return
-		}
-
-
 		var userData structs.UserFromBody
-		if errUnmarshalJson := json.Unmarshal(resp, &userData); errUnmarshalJson != nil {
-			HttpError(w, errUnmarshalJson, "failed to get Json in Authorization", "Server Error", http.StatusInternalServerError)
+		if errUnmarshBody := UnmarshalBody(w, r.Body, &userData); errUnmarshBody != nil {
+			return
 		}
 
 		User, errAuth := ro.DB.AuthorizationUser(userData)
 		if errAuth != nil {
-			HttpError(w, errAuth, "", "failed to check user", http.StatusBadRequest)
+			ErrorPorcessing.HttpError(w, errAuth, "", "wrong data", http.StatusBadRequest)
 			return
 		}
 
 		tokenJson, errGetToken := GetToken(User)
 		if errGetToken != nil {
-			HttpError(w, errGetToken, "failed to Signing String", "", http.StatusInternalServerError)
+			ErrorPorcessing.HttpError(w, errGetToken, "failed to Signing String", "", http.StatusInternalServerError)
 			return
 		}
 
@@ -65,27 +60,20 @@ func MyRequest(ro Route) (*chi.Mux){
 	router.Post("/signup", func(w http.ResponseWriter, r *http.Request){
 		defer r.Body.Close()
 
-		resp, err := ioutil.ReadAll(r.Body)
-		if err != nil{
-			HttpError(w, err, "failed to read body", "wrong data", http.StatusBadRequest)
-			return
-		}
-
 		var user structs.UserFromBody
-		if jsonErr := json.Unmarshal(resp, &user); jsonErr != nil {
-			HttpError(w, jsonErr, "failed to unmarshal body", "server error", http.StatusInternalServerError)
+		if errUnmarshUser := UnmarshalBody(w, r.Body, &user); errUnmarshUser != nil {
 			return
 		}
 
 		User, errCreateUser := ro.DB.CreateUser(user)
 		if errCreateUser != nil {
-			HttpError(w, errCreateUser, errCreateUser.Error(), "server error", http.StatusInternalServerError)
+			ErrorPorcessing.HttpError(w, errCreateUser, errCreateUser.Error(), "server error", http.StatusInternalServerError)
 			return
 		}
 
 		tokenJson, errGetToken := GetToken(User)
 		if errGetToken != nil {
-				HttpError(w, errGetToken, "failed to get token in Authorization", "Server Error", http.StatusInternalServerError)
+				ErrorPorcessing.HttpError(w, errGetToken, "failed to get token in Authorization", "Server Error", http.StatusInternalServerError)
 				return
 		}
 
@@ -103,7 +91,7 @@ func MyRequest(ro Route) (*chi.Mux){
 
 		userJson, errUsersJson := GetJsonByte(users)
 		if errUsersJson != nil {
-			HttpError(w, errUsersJson, "", "server error", http.StatusInternalServerError)
+			ErrorPorcessing.HttpError(w, errUsersJson, "", "server error", http.StatusInternalServerError)
 			return
 		}
 
@@ -112,6 +100,21 @@ func MyRequest(ro Route) (*chi.Mux){
 	})
 
 	return router
+}
+
+func UnmarshalBody(w http.ResponseWriter,r io.Reader, v interface{}) error {
+	resp, errResp := ioutil.ReadAll(r)
+	if errResp != nil {
+		ErrorPorcessing.HttpError(w, errResp, "failed to get body", "Bad Request", http.StatusBadRequest)
+		return errResp
+	}
+
+	if errUnmarshalJson := json.Unmarshal(resp, v); errUnmarshalJson != nil {
+		ErrorPorcessing.HttpError(w, errUnmarshalJson, "failed to get Json in Authorization", "Server Error", http.StatusInternalServerError)
+		return errUnmarshalJson
+	}
+
+	return nil
 }
 
 func GetJsonByte(v interface{}) ([]byte, error){
@@ -123,10 +126,7 @@ func GetJsonByte(v interface{}) ([]byte, error){
 	return usersJson, nil
 }
 
-func HttpError(w http.ResponseWriter, err error, msgForLogger string, msgForResponse string, code int){
-	fmt.Println(msgForLogger + ": " + err.Error())
-	http.Error(w, msgForResponse, code)
-}
+
 
 func GetToken(User structs.User) ([]byte, error){
 	tokenWithClaims := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
