@@ -1,7 +1,5 @@
 BEGIN;
 
---CREATE EXTENSION "uuid-ossp"
-
 CREATE TABLE users(
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     login varchar(100) NOT NULL UNIQUE,
@@ -19,7 +17,7 @@ CREATE TABLE todo_lists(
 CREATE TABLE todos(
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title varchar(1000),
-    discription varchar(5000),
+    description varchar(5000),
     checked boolean NOT NULL DEFAULT false,
     todo_lists_id UUID NOT NULL REFERENCES todo_lists(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -43,7 +41,7 @@ CREATE TABLE todo_changes(
 CREATE TABLE users_rights(
     users_id UUID REFERENCES users(id),
     todo_lists_id UUID REFERENCES todo_lists(id),
-    rights varchar(10),
+    rights INTEGER,
     PRIMARY KEY(users_id, todo_lists_id)
 );
 

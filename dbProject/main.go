@@ -16,14 +16,14 @@ import (
 
 var(
 	uniDB = "postgresql://habitov:habitov@95.217.232.188:7777/habitov"
-	localDB = "postgresql://maui:maui@192.168.0.26:5432/postgres"
+	localDB = "postgresql://maui:maui@192.168.0.12:5432/postgres"
 )
 
 func main() {
 	//handler := MyHttp.MyRequest()
 	conn, err := SqlCommand.Connection(localDB)
 	if err != nil{
-		fmt.Println("faild to connect db")
+		fmt.Println("faild to connect db: " + err.Error())
 		return
 	}
 
